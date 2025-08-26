@@ -102,8 +102,6 @@ const mockOccurrenceRecords = [
     { key: 'ETH-005', id: 'ETH-005', date: '2025-08-25', volume: 1500, isCertified: true, timeOfDay: '11:20:00' },
 ];
 
-// --- NEW ---: Dummy data table for Production Inputs & Parameters
-// This data is linked by 'id' to the mockOccurrenceRecords.
 const mockProductionData = {
   'ETH-001': { ethanolVol: 10500, beerFeedRate: 590, trimSpeeds: 120, hoursOfProduction: 24, wdgsProdTonHr: 5.1, wdgsAvgMoisture: 65, ddgsProdTonHr: 2.1, ddgsAvgMoisture: 10 },
   'ETH-002': { ethanolVol: 8500, beerFeedRate: 580, trimSpeeds: 115, hoursOfProduction: 22, wdgsProdTonHr: 4.8, wdgsAvgMoisture: 66, ddgsProdTonHr: 1.9, ddgsAvgMoisture: 11 },
@@ -123,7 +121,7 @@ const fetchDailyTotals = async (dateRange) => {
 
 const defaultFormValues = {
   tankNumber: 8422,
-  beerFeedRate: '590',
+  // beerFeedRate: '0.00',
   cornBu: '0.00',
   beerFeedAdjustment: '1.00',
   wdgsTons: '0.00',
@@ -177,18 +175,16 @@ function ProductionBatchForm(props) {
       placement,
     });
   };
-
-  const handleValuesChange = (changedValues, allValues) => {
-    if ('cornBu' in changedValues || 'beerFeedAdjustment' in changedValues || 'wdgsTons' in changedValues || 'ddgsTons' in changedValues) {
-      return;
-    }
-    const numEthanolVol = parseFloat(allValues.ethanolVol || '0');
-    const numBeerFeedRate = parseFloat(allValues.beerFeedRate || '0');
-    const numHours = parseFloat(allValues.hoursOfProduction || '0');
-    const numWdgsProd = parseFloat(allValues.wdgsProdTonHr || '0');
-    const numWdgsMoisture = parseFloat(allValues.wdgsAvgMoisture || '0');
-    const numDdgsProd = parseFloat(allValues.ddgsProdTonHr || '0');
-    const numDdgsMoisture = parseFloat(allValues.ddgsAvgMoisture || '0');
+  
+  // --- NEW ---: Calculation logic extracted into its own function.
+  const runCalculations = (currentValues) => {
+    const numEthanolVol = parseFloat(currentValues.ethanolVol || '0');
+    const numBeerFeedRate = parseFloat(currentValues.beerFeedRate || '0');
+    const numHours = parseFloat(currentValues.hoursOfProduction || '0');
+    const numWdgsProd = parseFloat(currentValues.wdgsProdTonHr || '0');
+    const numWdgsMoisture = parseFloat(currentValues.wdgsAvgMoisture || '0');
+    const numDdgsProd = parseFloat(currentValues.ddgsProdTonHr || '0');
+    const numDdgsMoisture = parseFloat(currentValues.ddgsAvgMoisture || '0');
     const calculatedCorn = numEthanolVol / 3;
     const calculatedAdjustment = numBeerFeedRate === 590 ? 1 : numBeerFeedRate / 590;
     const calculatedWdgs = numWdgsProd * numHours * calculatedAdjustment;
@@ -204,8 +200,16 @@ function ProductionBatchForm(props) {
     });
   };
 
-  const newForm = () => {
-    form.resetFields();
+  // --- MODIFIED ---: This function now calls the extracted calculation function.
+  const handleValuesChange = (changedValues, allValues) => {
+    if ('cornBu' in changedValues || 'beerFeedAdjustment' in changedValues || 'wdgsTons' in changedValues || 'ddgsTons' in changedValues) {
+      return;
+    }
+    runCalculations(allValues);
+  };
+
+  const closeForm = () => {
+    window.close();
   };
 
   const onSubmitForm = async () => {
@@ -214,7 +218,6 @@ function ProductionBatchForm(props) {
       console.log('Submitting to product_batch table:', values);
       console.log('Ethanol Records for this batch:', filteredRecords);
       openNotification('bottomRight', 'Production Batch Data saved successfully');
-      newForm();
     } catch (error) {
       console.log('Validation Failed:', error);
     }
@@ -252,15 +255,20 @@ function ProductionBatchForm(props) {
   const rowSelection = {
     selectedRowKeys,
     onChange: onSelectChange,
+    getCheckboxProps: (record) => ({
+      disabled: record.isCertified,
+    }),
   };
 
-  // --- MODIFIED ---: This function now aggregates data and auto-populates the form.
   const handleSubmitCertified = () => {
     const count = selectedRowKeys.length;
+    if (count === 0) {
+        return;
+    }
+
     console.log('Submitting Certified Records:', selectedRowKeys);
 
-    // Initialize an accumulator for the production data fields
-    const aggregatedData = {
+    const finalData = {
       ethanolVol: 0,
       beerFeedRate: 0,
       trimSpeeds: 0,
@@ -271,26 +279,36 @@ function ProductionBatchForm(props) {
       ddgsAvgMoisture: 0,
     };
 
-    // Iterate over selected keys and sum up the corresponding production data
     selectedRowKeys.forEach(key => {
       const data = mockProductionData[key];
       if (data) {
-        for (const field in aggregatedData) {
-          // Add the value from the mock data to our aggregate object
-          aggregatedData[field] += data[field] || 0;
+        for (const field in finalData) {
+          finalData[field] += data[field] || 0;
         }
       }
     });
+    
+    finalData.beerFeedRate /= count;
+    finalData.wdgsAvgMoisture /= count;
+    finalData.ddgsAvgMoisture /= count;
+    finalData.trimSpeeds /= count;
 
-    // Auto-populate the form's fields with the aggregated data
-    form.setFieldsValue({
-      ...aggregatedData,
-      productionDate: certifiedRecordDate,
-    });
+    const valuesToSet = {
+        ...finalData,
+        productionDate: certifiedRecordDate,
+    };
+    
+    // Auto-populate the form's fields
+    form.setFieldsValue(valuesToSet);
+
+    // --- NEW ---: Manually trigger calculations after auto-populating.
+    // We pass all current form values along with the newly set values
+    // to ensure the calculation has the most up-to-date data.
+    runCalculations({ ...form.getFieldsValue(), ...valuesToSet });
 
     openNotification('bottomRight', `Submitted ${count} record(s) and auto-populated production data.`);
     setSelectedRowKeys([]);
-    setCertifiedRecordDate(null); // Optional: clear the date after submitting
+    setCertifiedRecordDate(null);
   };
 
 
@@ -328,7 +346,6 @@ function ProductionBatchForm(props) {
               )}
               <Table rowSelection={rowSelection} columns={tableColumns} dataSource={filteredRecords} pagination={false} bordered />
               
-              {/* Datepicker for ethanol occurrence records */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
                 <div>
                   <span style={{ marginRight: '8px', color: '#1d1818', fontSize: '16px' }}>
@@ -361,7 +378,9 @@ function ProductionBatchForm(props) {
                   name="productionDate"
                   rules={[{ required: true, message: 'Please set a production date via the section above!' }]}
                 >
-                  <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" />
+                  <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" 
+                    disabledDate={disabledDate}
+                  />
                 </Form.Item>
               </div>
               <div style={{ width: 'calc(50% - 8px)' }}>
@@ -410,7 +429,7 @@ function ProductionBatchForm(props) {
           </SectionContainer>
 
           <ButtonContainer>
-            <AntButton type="default" size="large" onClick={newForm} style={{ backgroundColor: "#454E7C", color: "white", marginRight: 0 }}>{t('New')}</AntButton>
+            <AntButton type="default" size="large" onClick={closeForm} style={{ backgroundColor: "#454E7C", color: "white", marginRight: 0 }}>{t('Close')}</AntButton>
             <AntButton type="default" size="large" onClick={() => form.resetFields()} icon={<ReloadOutlined />} style={{ backgroundColor: "#454E7C", color: "white", marginRight: 0 }} />
             <AntButton type="primary" size="large" onClick={onSubmitForm} style={{ backgroundColor: "#454E7C", borderColor: "#454E7C" }}>{t('Submit Batch Data')}</AntButton>
           </ButtonContainer>
