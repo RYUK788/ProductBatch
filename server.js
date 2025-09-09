@@ -13,7 +13,7 @@ const dbConfig = {
   host: 'devops.golgixai.com',
   user: 'root',
   port: 1434,
-  password: 'VuToFz3A9t#^*U',
+  password: 'your_password',
   database: 'icm',
   waitForConnections: true,
   connectionLimit: 10,
