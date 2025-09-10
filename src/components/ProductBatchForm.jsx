@@ -267,12 +267,13 @@ function ProductionBatchForm(props) {
 
 const onSubmitForm = async () => {
     try {
-      // 1. Gather all values from the form
       const values = await form.validateFields();
       console.log('Submitting these values:', values);
 
-      // 2. Construct the SQL INSERT statement
-      // Using '?' as placeholders is the secure way to pass data
+      // --- CORRECTED LINE ---
+      // We call .format() directly on the date object from the form.
+      const formattedDate = values.productionDate.format('YYYY-MM-DD');
+
       const insertQuery = `
         INSERT INTO product_batch (
           production_date, tank_number, ethanol_vol, beer_feed_rate, 
@@ -282,9 +283,8 @@ const onSubmitForm = async () => {
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       `;
 
-      // 3. Create an array of values in the correct order to match the query
       const queryParams = [
-        moment(values.productionDate).format('YYYY-MM-DD'),
+        formattedDate, // formatting first because moment interferes with DatePicker to change the date to current date instead of the date object which was picked up
         values.tankNumber,
         values.ethanolVol,
         values.beerFeedRate,
@@ -300,15 +300,12 @@ const onSubmitForm = async () => {
         values.wdgsTons,
         values.ddgsTons
       ];
-
-      // 4. Send the query and parameters to the backend
-      // NOTE: Your api.js and server.js must be updated to handle parameterized queries
+      
       const result = await fetchData(insertQuery, queryParams);
       console.log('API Response:', result);
 
       openNotification('bottomRight', 'Production Batch Data saved successfully!');
       
-      // Reset the form after successful submission
       form.resetFields();
       setSelectedDateRange(null);
       setSelectedTankNumber(null);
