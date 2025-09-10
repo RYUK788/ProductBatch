@@ -94,17 +94,7 @@ const formProps = {
     validateTrigger: ['onChange', 'onBlur'],
 };
 
-const fetchDailyTotals = async (dateRange) => {
-  console.log(`Fetching totals for date range: ${dateRange?.[0]?.format('YYYY-MM-DD')} to ${dateRange?.[1]?.format('YYYY-MM-DD')}`);
-  // This can also be converted to use your api.js fetchData if needed
-  return Promise.resolve({
-    totalWdgs: 125.50,
-    totalDdgs: 250.75,
-  });
-};
-
 const defaultFormValues = {
-  tankNumber: 8422,
   cornBu: '0.00',
   beerFeedAdjustment: '1.00',
   wdgsTons: '0.00',
@@ -116,31 +106,34 @@ const defaultFormValues = {
 // --- Main Component ---
 function ProductionBatchForm(props) {
   const [form] = Form.useForm();
-  const dateRange = Form.useWatch('dateRange', form);
+
+  // Use useState for robustly tracking filter changes
+  const [selectedDateRange, setSelectedDateRange] = useState(null);
+  const [selectedTankNumber, setSelectedTankNumber] = useState(null);
 
   const [filteredRecords, setFilteredRecords] = useState([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [certifiedRecordDate, setCertifiedRecordDate] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // useEffect for loading the main table data
   useEffect(() => {
     const loadOccurrenceRecords = async () => {
-        if (dateRange && dateRange.length === 2) {
+        if (selectedDateRange && selectedDateRange.length === 2 && selectedTankNumber) {
             setIsLoading(true);
             setSelectedRowKeys([]);
-            const [startDate, endDate] = dateRange;
+            const [startDate, endDate] = selectedDateRange;
             const startDateStr = startDate.format('YYYY-MM-DD');
             const endDateStr = endDate.format('YYYY-MM-DD');
 
             const query = `
                 SELECT id, transfer_date, latest_end_ts, TOT_FIC_8403_Total, isCertified 
-                FROM ProductBatch 
+                FROM ProductBatch_${selectedTankNumber} 
                 WHERE transfer_date BETWEEN '${startDateStr}' AND '${endDateStr}'
             `;
             
             try {
                 const recordsFromDb = await fetchData(query);
-                
                 const mappedRecords = recordsFromDb.map(record => ({
                     key: record.id,
                     id: record.id,
@@ -149,9 +142,7 @@ function ProductionBatchForm(props) {
                     volume: record.TOT_FIC_8403_Total,
                     isCertified: record.isCertified,
                 }));
-                
                 setFilteredRecords(mappedRecords);
-
             } catch (error) {
                 console.error("Failed to fetch product batch records:", error);
                 AntNotification.error({
@@ -166,15 +157,62 @@ function ProductionBatchForm(props) {
             setFilteredRecords([]);
         }
     };
-
     loadOccurrenceRecords();
-  }, [dateRange]);
+  }, [selectedDateRange, selectedTankNumber]);
   
+ useEffect(() => {
+  const loadDailyTotals = async () => {
+    if (selectedDateRange && selectedDateRange.length === 2 && selectedTankNumber) {
+      const [startDate, endDate] = selectedDateRange;
+      const startDateStr = startDate.format('YYYY-MM-DD');
+      const endDateStr = endDate.format('YYYY-MM-DD');
+
+      // 1. Ask the database for ALL individual rows from the selected tank
+      const query = `
+        SELECT 
+          wdgs_production, 
+          ddgs_production 
+        FROM ProductBatch_${selectedTankNumber} 
+        WHERE transfer_date BETWEEN '${startDateStr}' AND '${endDateStr}'
+      `;
+      
+      try {
+        // 2. Get the array of all records
+        const allRecords = await fetchData(query);
+        
+        // 3. Manually calculate the sum using JavaScript's .reduce() method
+        if (allRecords && allRecords.length > 0) {
+          const totals = allRecords.reduce((acc, record) => {
+            acc.totalWdgs += parseFloat(record.wdgs_production) || 0;
+            acc.totalDdgs += parseFloat(record.ddgs_production) || 0;
+            return acc;
+          }, { totalWdgs: 0, totalDdgs: 0 });
+
+          form.setFieldsValue({
+            dailyTotalWdgs: totals.totalWdgs.toFixed(2),
+            dailyTotalDdgs: totals.totalDdgs.toFixed(2),
+          });
+        } else {
+           form.setFieldsValue({ dailyTotalWdgs: '0.00', dailyTotalDdgs: '0.00' });
+        }
+      } catch (error) { 
+        console.error("Failed to fetch daily totals:", error);
+      }
+    } else {
+        // Clear totals if filters are not set
+        form.setFieldsValue({ dailyTotalWdgs: '0.00', dailyTotalDdgs: '0.00' });
+    }
+  };
+
+  loadDailyTotals();
+}, [selectedDateRange, selectedTankNumber]); // The hook now correctly depends on both filters
+
+  // useEffect for updating the number of transfers display
   useEffect(() => {
     form.setFieldsValue({
       numTransfers: filteredRecords.length,
     });
-  }, [filteredRecords, form]);
+  }, [filteredRecords]);
 
   const openNotification = (placement, message) => {
     AntNotification.success({
@@ -207,6 +245,15 @@ function ProductionBatchForm(props) {
   };
 
   const handleValuesChange = (changedValues, allValues) => {
+    // Update state based on form changes
+    if ('dateRange' in changedValues) {
+      setSelectedDateRange(changedValues.dateRange);
+    }
+    if ('tankNumber' in changedValues) {
+      setSelectedTankNumber(changedValues.tankNumber);
+    }
+  
+    // Trigger downstream calculations
     if ('cornBu' in changedValues || 'beerFeedAdjustment' in changedValues || 'wdgsTons' in changedValues || 'ddgsTons' in changedValues) {
       return;
     }
@@ -227,17 +274,6 @@ function ProductionBatchForm(props) {
       console.log('Validation Failed:', error);
     }
   };
-
-  useEffect(() => {
-    if (dateRange && dateRange.length === 2) {
-      fetchDailyTotals(dateRange).then(data => {
-        form.setFieldsValue({
-          dailyTotalWdgs: data.totalWdgs.toFixed(2),
-          dailyTotalDdgs: data.totalDdgs.toFixed(2),
-        });
-      });
-    }
-  }, [dateRange, form]);
 
   const tableColumns = [
     { title: 'ID', dataIndex: 'id', key: 'id' },
@@ -284,49 +320,51 @@ function ProductionBatchForm(props) {
         return;
     }
 
-    // 1. Calculate values that are already available on the frontend
     const selectedRecords = filteredRecords.filter(record => selectedRowKeys.includes(record.key));
-    
-    const totalEthanolVol = selectedRecords.reduce((sum, record) => {
-        return sum + (parseFloat(record.volume) || 0);
-    }, 0);
-
+    const totalEthanolVol = selectedRecords.reduce((sum, record) => sum + (parseFloat(record.volume) || 0), 0);
     const hoursOfProduction = count * 12;
-
-    // 2. Build the SQL query to fetch the remaining data from the database
     const idsToFetch = selectedRowKeys.join(',');
+
     const query = `
         SELECT 
             FIC_3513_SP, 
             SC_6617_Out, 
             wdgs_moisture, 
-            ddgs_moisture 
-        FROM ProductBatch 
+            ddgs_moisture,
+            wdgs_production,
+            ddgs_production
+        FROM ProductBatch_${selectedTankNumber} 
         WHERE id IN (${idsToFetch})
     `;
 
     try {
-        // 3. Call the API
         const additionalData = await fetchData(query);
         if (!additionalData || additionalData.length === 0) {
             throw new Error("Could not fetch production data for the selected records.");
         }
 
-        // 4. Calculate averages from the API response
         const sums = additionalData.reduce((acc, record) => {
             acc.beerFeedRate += parseFloat(record.FIC_3513_SP) || 0;
             acc.trimSpeeds += parseFloat(record.SC_6617_Out) || 0;
             acc.wdgsAvgMoisture += parseFloat(record.wdgs_moisture) || 0;
             acc.ddgsAvgMoisture += parseFloat(record.ddgs_moisture) || 0;
+            acc.wdgsProdTonHr += parseFloat(record.wdgs_production) || 0;
+            acc.ddgsProdTonHr += parseFloat(record.ddgs_production) || 0;
             return acc;
-        }, { beerFeedRate: 0, trimSpeeds: 0, wdgsAvgMoisture: 0, ddgsAvgMoisture: 0 });
+        }, { 
+            beerFeedRate: 0, 
+            trimSpeeds: 0, 
+            wdgsAvgMoisture: 0, 
+            ddgsAvgMoisture: 0,
+            wdgsProdTonHr: 0,
+            ddgsProdTonHr: 0
+        });
 
         const avgBeerFeedRate = sums.beerFeedRate / additionalData.length;
         const avgTrimSpeeds = sums.trimSpeeds / additionalData.length;
         const avgWdgsMoisture = sums.wdgsAvgMoisture / additionalData.length;
         const avgDdgsMoisture = sums.ddgsAvgMoisture / additionalData.length;
-
-        // 5. Assemble the final data object for the form
+        
         const valuesToSet = {
             productionDate: certifiedRecordDate,
             isCertified: 1,
@@ -336,11 +374,10 @@ function ProductionBatchForm(props) {
             trimSpeeds: avgTrimSpeeds.toFixed(2),
             wdgsAvgMoisture: avgWdgsMoisture.toFixed(2),
             ddgsAvgMoisture: avgDdgsMoisture.toFixed(2),
-            wdgsProdTonHr: null,
-            ddgsProdTonHr: null,
+            wdgsProdTonHr: sums.wdgsProdTonHr.toFixed(2), 
+            ddgsProdTonHr: sums.ddgsProdTonHr.toFixed(2),
         };
         
-        // 6. Populate the form and run the next set of calculations
         form.setFieldsValue(valuesToSet);
         runCalculations({ ...form.getFieldsValue(), ...valuesToSet });
 
@@ -377,7 +414,12 @@ function ProductionBatchForm(props) {
                   </Form.Item>
                 </div>
                 <div style={{ width: 'calc(50% - 8px)' }}>
-                  <Form.Item label={<><span style={{color: 'red'}}> </span> {t('Tank Number')}</>} name="tankNumber"><Select><Option value={8422}>8422</Option><Option value={8433}>8433</Option></Select></Form.Item>
+                  <Form.Item label={<><span style={{color: 'red'}}> </span> {t('Tank Number')}</>} name="tankNumber">
+                      <Select placeholder="Select a Tank">
+                          <Option value={8422}>8422</Option>
+                          <Option value={8433}>8433</Option>
+                      </Select>
+                  </Form.Item>
                 </div>
                 <div style={{ width: 'calc(50% - 8px)' }}>
                   <Form.Item label={<><span style={{color: 'red'}}> </span> {t('Number of Transfers')}</>} name="numTransfers"><Input type="number"  disabled /></Form.Item>
@@ -385,9 +427,9 @@ function ProductionBatchForm(props) {
               </div>
 
               <SubSectionTitle style={{ marginTop: '24px' }}>{t('Ethanol Occurrence Records')}</SubSectionTitle>
-              {dateRange && dateRange.length === 2 && (
+              {selectedDateRange && selectedDateRange.length === 2 && (
                 <div style={{ marginBottom: '8px', color: '#666', fontSize: '12px' }}>
-                  Showing records from {dateRange[0].format('YYYY-MM-DD')} to {dateRange[1].format('YYYY-MM-DD')} ({filteredRecords.length} records found)
+                  Showing records from {selectedDateRange[0].format('YYYY-MM-DD')} to {selectedDateRange[1].format('YYYY-MM-DD')} ({filteredRecords.length} records found)
                 </div>
               )}
               <Table 
@@ -545,7 +587,11 @@ function ProductionBatchForm(props) {
 
           <div style={{ textAlign: 'right', marginTop: '16px' }}>
             <AntButton type="default" size="large" onClick={closeForm} style={{ backgroundColor: "#454E7C", color: "white", marginRight: '8px' }}>{t('Close')}</AntButton>
-            <AntButton type="default" size="large" onClick={() => form.resetFields()} icon={<ReloadOutlined />} style={{ backgroundColor: "#454E7C", color: "white", marginRight: '8px' }} />
+            <AntButton type="default" size="large" onClick={() => {
+                form.resetFields();
+                setSelectedDateRange(null);
+                setSelectedTankNumber(null);
+            }} icon={<ReloadOutlined />} style={{ backgroundColor: "#454E7C", color: "white", marginRight: '8px' }} />
             <AntButton type="primary" size="large" onClick={onSubmitForm} style={{ backgroundColor: "#454E7C", borderColor: "#454E7C" }}>{t('Submit Batch Data')}</AntButton>
           </div>
         </Form>
