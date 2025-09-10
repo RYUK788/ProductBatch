@@ -24,9 +24,9 @@ const API_URL = 'http://localhost:3005/api';
  * This function is needed for your other queries to work temporarily.
  * It calls the insecure `/api/query` endpoint.
  */
-export const fetchData = async (query) => {
+export const fetchData = async (query,params) => {
   try {
-    const response = await axios.post(`${API_URL}/query`, { query });
+    const response = await axios.post(`${API_URL}/query`, { query, params });
     return response.data;
   } catch (error) {
     console.error('Error fetching data:', error);

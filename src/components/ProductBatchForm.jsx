@@ -101,6 +101,7 @@ const defaultFormValues = {
   ddgsTons: '0.00',
   dailyTotalWdgs: '0.00',
   dailyTotalDdgs: '0.00',
+  isCertified: 0,
 };
 
 // --- Main Component ---
@@ -264,17 +265,64 @@ function ProductionBatchForm(props) {
     window.close();
   };
 
-  const onSubmitForm = async () => {
+const onSubmitForm = async () => {
     try {
+      // 1. Gather all values from the form
       const values = await form.validateFields();
-      console.log('Submitting to product_batch table:', values);
-      console.log('Ethanol Records for this batch:', filteredRecords);
-      openNotification('bottomRight', 'Production Batch Data saved successfully');
+      console.log('Submitting these values:', values);
+
+      // 2. Construct the SQL INSERT statement
+      // Using '?' as placeholders is the secure way to pass data
+      const insertQuery = `
+        INSERT INTO product_batch (
+          production_date, tank_number, ethanol_vol, beer_feed_rate, 
+          trim_speeds, hours_of_production, wdgs_prod_ton_hr, wdgs_avg_moisture, 
+          ddgs_prod_ton_hr, ddgs_avg_moisture, is_certified, corn_bu, 
+          beer_feed_adjustment, total_wdgs_tons, total_ddgs_tons
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+      `;
+
+      // 3. Create an array of values in the correct order to match the query
+      const queryParams = [
+        moment(values.productionDate).format('YYYY-MM-DD'),
+        values.tankNumber,
+        values.ethanolVol,
+        values.beerFeedRate,
+        values.trimSpeeds,
+        values.hoursOfProduction,
+        values.wdgsProdTonHr,
+        values.wdgsAvgMoisture,
+        values.ddgsProdTonHr,
+        values.ddgsAvgMoisture,
+        values.isCertified,
+        values.cornBu,
+        values.beerFeedAdjustment,
+        values.wdgsTons,
+        values.ddgsTons
+      ];
+
+      // 4. Send the query and parameters to the backend
+      // NOTE: Your api.js and server.js must be updated to handle parameterized queries
+      const result = await fetchData(insertQuery, queryParams);
+      console.log('API Response:', result);
+
+      openNotification('bottomRight', 'Production Batch Data saved successfully!');
+      
+      // Reset the form after successful submission
+      form.resetFields();
+      setSelectedDateRange(null);
+      setSelectedTankNumber(null);
+
     } catch (error) {
-      console.log('Validation Failed:', error);
+      console.error('Submission Failed:', error);
+      AntNotification.error({
+          message: 'Submission Failed',
+          description: error.message || 'An error occurred while saving the data.',
+          placement: 'bottomRight',
+      });
     }
   };
-
+// Ethanol Occurence Records Table
   const tableColumns = [
     { title: 'ID', dataIndex: 'id', key: 'id' },
     { 
