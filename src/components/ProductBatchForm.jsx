@@ -116,6 +116,7 @@ function ProductionBatchForm(props) {
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [certifiedRecordDate, setCertifiedRecordDate] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProductionDateSet, setIsProductionDateSet] = useState(false);
 
   // useEffect for loading the main table data
   useEffect(() => {
@@ -323,6 +324,7 @@ const onSubmitForm = async () => {
       form.resetFields();
       setSelectedDateRange(null);
       setSelectedTankNumber(null);
+      setIsProductionDateSet(false);
 
     } catch (error) {
       console.error('Submission Failed:', error);
@@ -443,6 +445,7 @@ const onSubmitForm = async () => {
         openNotification('bottomRight', `Submitted ${count} record(s) and auto-populated production data.`);
         setSelectedRowKeys([]);
         setCertifiedRecordDate(null);
+        setIsProductionDateSet(true);
 
     } catch (error) {
         console.error("Error submitting certified records:", error);
@@ -462,50 +465,112 @@ const onSubmitForm = async () => {
     <StyledForm>
       <GlobalStyle />
       <FormContainer>
-        <Form form={form} {...formProps} onValuesChange={handleValuesChange} initialValues={defaultFormValues}>
+        <Form
+          form={form}
+          {...formProps}
+          onValuesChange={handleValuesChange}
+          initialValues={defaultFormValues}
+        >
           <SectionContainer>
-            <SectionTitle>{t('Batch Details')}</SectionTitle>
-            <div style={{ padding: '16px' }}>
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ width: 'calc(50% - 8px)' }}>
-                  <Form.Item label={<><span style={{color: 'red'}}>* </span> {t('Date Range')}</>} name="dateRange">
-                    <RangePicker style={{ width: '100%' }} disabledDate={disabledDate} format="YYYY-MM-DD" />
+            <SectionTitle>{t("Batch Details")}</SectionTitle>
+            <div style={{ padding: "16px" }}>
+              <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+                <div style={{ width: "calc(50% - 8px)" }}>
+                  <Form.Item
+                    label={
+                      <>
+                        <span style={{ color: "red" }}>* </span>{" "}
+                        {t("Date Range")}
+                      </>
+                    }
+                    name="dateRange"
+                  >
+                    <RangePicker
+                      style={{ width: "100%" }}
+                      disabledDate={disabledDate}
+                      format="YYYY-MM-DD"
+                    />
                   </Form.Item>
                 </div>
-                <div style={{ width: 'calc(50% - 8px)' }}>
-                  <Form.Item label={<><span style={{color: 'red'}}> </span> {t('Tank Number')}</>} name="tankNumber">
-                      <Select placeholder="Select a Tank">
-                          <Option value={8422}>8422</Option>
-                          <Option value={8433}>8433</Option>
-                      </Select>
+                <div style={{ width: "calc(50% - 8px)" }}>
+                  <Form.Item
+                    label="Tank Number"
+                    name="tankNumber"
+                    required
+                    rules={[
+                      {
+                        required: true,
+                        message: "Please select a Tank Number!",
+                      },
+                    ]}
+                  >
+                    <Select placeholder="Select a Tank">
+                      <Option value={8422}>8422</Option>
+                      <Option value={8433}>8433</Option>
+                    </Select>
                   </Form.Item>
                 </div>
-                <div style={{ width: 'calc(50% - 8px)' }}>
-                  <Form.Item label={<><span style={{color: 'red'}}> </span> {t('Number of Transfers')}</>} name="numTransfers"><Input type="number"  disabled /></Form.Item>
+                <div style={{ width: "calc(50% - 8px)" }}>
+                  <Form.Item
+                    label={
+                      <>
+                        <span style={{ color: "red" }}> </span>{" "}
+                        {t("Number of Transfers")}
+                      </>
+                    }
+                    name="numTransfers"
+                  >
+                    <Input type="number" disabled />
+                  </Form.Item>
                 </div>
               </div>
 
-              <SubSectionTitle style={{ marginTop: '24px' }}>{t('Ethanol Occurrence Records')}</SubSectionTitle>
+              <SubSectionTitle style={{ marginTop: "24px" }}>
+                {t("Ethanol Occurrence Records")}
+              </SubSectionTitle>
               {selectedDateRange && selectedDateRange.length === 2 && (
-                <div style={{ marginBottom: '8px', color: '#666', fontSize: '12px' }}>
-                  Showing records from {selectedDateRange[0].format('YYYY-MM-DD')} to {selectedDateRange[1].format('YYYY-MM-DD')} ({filteredRecords.length} records found)
+                <div
+                  style={{
+                    marginBottom: "8px",
+                    color: "#666",
+                    fontSize: "12px",
+                  }}
+                >
+                  Showing records from{" "}
+                  {selectedDateRange[0].format("YYYY-MM-DD")} to{" "}
+                  {selectedDateRange[1].format("YYYY-MM-DD")} (
+                  {filteredRecords.length} records found)
                 </div>
               )}
-              <Table 
-                  rowSelection={rowSelection} 
-                  columns={tableColumns} 
-                  dataSource={filteredRecords} 
-                  pagination={false} 
-                  bordered 
-                  loading={isLoading} 
-                />
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+              <Table
+                rowSelection={rowSelection}
+                columns={tableColumns}
+                dataSource={filteredRecords}
+                pagination={false}
+                bordered
+                loading={isLoading}
+              />
+
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginTop: "16px",
+                }}
+              >
                 <div>
-                  <span style={{ marginRight: '8px', color: '#1d1818', fontSize: '16px' }}>
-                    <span style={{color: 'red'}}>* </span>Select date to set for batch
+                  <span
+                    style={{
+                      marginRight: "8px",
+                      color: "#1d1818",
+                      fontSize: "16px",
+                    }}
+                  >
+                    <span style={{ color: "red" }}>* </span>Select date to set
+                    for batch
                   </span>
-                  <DatePicker  
+                  <DatePicker
                     value={certifiedRecordDate}
                     onChange={(date) => setCertifiedRecordDate(date)}
                     format="YYYY-MM-DD"
@@ -514,8 +579,14 @@ const onSubmitForm = async () => {
                 </div>
                 <AntButton
                   onClick={handleSubmitCertified}
-                  disabled={selectedRowKeys.length === 0 || !certifiedRecordDate}
-                  style={{ backgroundColor: "#454E7C", color: "white", marginRight: 0 }}
+                  disabled={
+                    selectedRowKeys.length === 0 || !certifiedRecordDate
+                  }
+                  style={{
+                    backgroundColor: "#454E7C",
+                    color: "white",
+                    marginRight: 0,
+                  }}
                 >
                   Submit Certified Records ({selectedRowKeys.length} selected)
                 </AntButton>
@@ -523,135 +594,290 @@ const onSubmitForm = async () => {
             </div>
           </SectionContainer>
 
-              <SectionContainer>
-                  <SectionTitle>{t('Production Inputs & Parameters')}</SectionTitle>
-                  <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      
-                      <div>
-                          <Form.Item
-                              label={t('Production Date')}
-                              name="productionDate"
-                              rules={[{ required: true, message: 'Please set a production date via the section above!' }]}
-                          >
-                              <DatePicker style={{ width: '100%' }} format="YYYY-MM-DD" disabledDate={disabledDate} />
-                          </Form.Item>
-                      </div>
-
-                     
-                      <div>
-                          <Form.Item
-                              label={t('Undenatured Ethanol Net Vol (gal)')}
-                              name="ethanolVol"
-                              rules={[{ required: true, message: 'Please enter the Ethanol Volume!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item
-                              label={t('Beer Feed Rate')}
-                              name="beerFeedRate"
-                              rules={[{ required: true, message: 'Please enter the Beer Feed Rate!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item
-                              label={t('Trim Speeds')}
-                              name="trimSpeeds"
-                              rules={[{ required: true, message: 'Please enter Trim Speeds!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item
-                              label={t('Hours of Production')}
-                              name="hoursOfProduction"
-                              rules={[{ required: true, message: 'Please enter the Hours of Production!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item
-                              label={t('WDGS Production (tons/hour)')}
-                              name="wdgsProdTonHr"
-                              rules={[{ required: true, message: 'Please enter the WDGS Production!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item
-                              label={t('WDGS Avg % Moisture')}
-                              name="wdgsAvgMoisture"
-                              rules={[{ required: true, message: 'Please enter the WDGS Average Moisture!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item
-                              label={t('DDGS Production (tons/hour)')}
-                              name="ddgsProdTonHr"
-                              rules={[{ required: true, message: 'Please enter the DDGS Production!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item
-                              label={t('DDGS Avg % Moisture')}
-                              name="ddgsAvgMoisture"
-                              rules={[{ required: true, message: 'Please enter the DDGS Average Moisture!' }]}
-                          >
-                              <InputNumber style={{ width: '100%' }} precision={2} controls={false} />
-                          </Form.Item>
-                      </div>
-
-                      <div>
-                          <Form.Item label={t('Is Certified')} name="isCertified">
-                              <Input type="number" disabled />
-                          </Form.Item>
-                      </div>
-                  </div>
-              </SectionContainer>
-
           <SectionContainer>
-            <SectionTitle>{t('Calculated Values')}</SectionTitle>
-            <div style={{ padding: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ width: 'calc(50% - 8px)' }}><Form.Item label={t('Corn (bu)')} name="cornBu"><Input type="number" step="any" /></Form.Item></div>
-                <div style={{ width: 'calc(50% - 8px)' }}><Form.Item label={t('Beer Feed Adjustment')} name="beerFeedAdjustment"><Input type="number" step="any" /></Form.Item></div>
-                <div style={{ width: 'calc(50% - 8px)' }}><Form.Item label={t('WDGS (tons)')} name="wdgsTons"><Input type="number" step="any" /></Form.Item></div>
-                <div style={{ width: 'calc(50% - 8px)' }}><Form.Item label={t('DDGS (tons)')} name="ddgsTons"><Input type="number" step="any" /></Form.Item></div>
+            <SectionTitle>{t("Production Inputs & Parameters")}</SectionTitle>
+            <div
+              style={{
+                padding: "16px",
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "16px",
+              }}
+            >
+              <div>
+                <Form.Item
+                  label={t("Production Date")}
+                  name="productionDate"
+                  rules={[
+                    {
+                      required: true,
+                      message:
+                        "Please set a production date via the section above!",
+                    },
+                  ]}
+                >
+                  <DatePicker
+                    style={{ width: "100%" }}
+                    format="YYYY-MM-DD"
+                    disabledDate={disabledDate}
+                    disabled={isProductionDateSet}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("Undenatured Ethanol Net Vol (gal)")}
+                  name="ethanolVol"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please enter the Ethanol Volume!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("Beer Feed Rate")}
+                  name="beerFeedRate"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please enter the Beer Feed Rate!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("Trim Speeds")}
+                  name="trimSpeeds"
+                  rules={[
+                    { required: true, message: "Please enter Trim Speeds!" },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("Hours of Production")}
+                  name="hoursOfProduction"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please enter the Hours of Production!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("WDGS Production (tons/hour)")}
+                  name="wdgsProdTonHr"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please enter the WDGS Production!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("WDGS Avg % Moisture")}
+                  name="wdgsAvgMoisture"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please enter the WDGS Average Moisture!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("DDGS Production (tons/hour)")}
+                  name="ddgsProdTonHr"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please enter the DDGS Production!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item
+                  label={t("DDGS Avg % Moisture")}
+                  name="ddgsAvgMoisture"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Please enter the DDGS Average Moisture!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    style={{ width: "100%" }}
+                    precision={2}
+                    controls={false}
+                  />
+                </Form.Item>
+              </div>
+
+              <div>
+                <Form.Item label={t("Is Certified")} name="isCertified">
+                  <Input type="number" disabled />
+                </Form.Item>
+              </div>
             </div>
           </SectionContainer>
 
           <SectionContainer>
-            <SectionTitle>{t('Daily Totals')}</SectionTitle>
-            <div style={{ padding: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                <div style={{ width: 'calc(50% - 8px)' }}><Form.Item label={t('Total WDGS (tons)')} name="dailyTotalWdgs"><Input type="number" step="any" /></Form.Item></div>
-                <div style={{ width: 'calc(50% - 8px)' }}><Form.Item label={t('Total DDGS (tons)')} name="dailyTotalDdgs"><Input type="number" step="any" /></Form.Item></div>
+            <SectionTitle>{t("Calculated Values")}</SectionTitle>
+            <div
+              style={{
+                padding: "16px",
+                display: "flex",
+                gap: "16px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ width: "calc(50% - 8px)" }}>
+                <Form.Item label={t("Corn (bu)")} name="cornBu">
+                  <Input type="number" step="any" />
+                </Form.Item>
+              </div>
+              <div style={{ width: "calc(50% - 8px)" }}>
+                <Form.Item
+                  label={t("Beer Feed Adjustment")}
+                  name="beerFeedAdjustment"
+                >
+                  <Input type="number" step="any" />
+                </Form.Item>
+              </div>
+              <div style={{ width: "calc(50% - 8px)" }}>
+                <Form.Item label={t("WDGS (tons)")} name="wdgsTons">
+                  <Input type="number" step="any" />
+                </Form.Item>
+              </div>
+              <div style={{ width: "calc(50% - 8px)" }}>
+                <Form.Item label={t("DDGS (tons)")} name="ddgsTons">
+                  <Input type="number" step="any" />
+                </Form.Item>
+              </div>
             </div>
           </SectionContainer>
 
-          <div style={{ textAlign: 'right', marginTop: '16px' }}>
-            <AntButton type="default" size="large" onClick={closeForm} style={{ backgroundColor: "#454E7C", color: "white", marginRight: '8px' }}>{t('Close')}</AntButton>
-            <AntButton type="default" size="large" onClick={() => {
+          <SectionContainer>
+            <SectionTitle>{t("Daily Totals")}</SectionTitle>
+            <div
+              style={{
+                padding: "16px",
+                display: "flex",
+                gap: "16px",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ width: "calc(50% - 8px)" }}>
+                <Form.Item label={t("Total WDGS (tons)")} name="dailyTotalWdgs">
+                  <Input type="number" step="any" />
+                </Form.Item>
+              </div>
+              <div style={{ width: "calc(50% - 8px)" }}>
+                <Form.Item label={t("Total DDGS (tons)")} name="dailyTotalDdgs">
+                  <Input type="number" step="any" />
+                </Form.Item>
+              </div>
+            </div>
+          </SectionContainer>
+
+          <div style={{ textAlign: "right", marginTop: "16px" }}>
+            <AntButton
+              type="default"
+              size="large"
+              onClick={closeForm}
+              style={{
+                backgroundColor: "#454E7C",
+                color: "white",
+                marginRight: "8px",
+              }}
+            >
+              {t("Close")}
+            </AntButton>
+            <AntButton
+              type="default"
+              size="large"
+              onClick={() => {
                 form.resetFields();
                 setSelectedDateRange(null);
                 setSelectedTankNumber(null);
-            }} icon={<ReloadOutlined />} style={{ backgroundColor: "#454E7C", color: "white", marginRight: '8px' }} />
-            <AntButton type="primary" size="large" onClick={onSubmitForm} style={{ backgroundColor: "#454E7C", borderColor: "#454E7C" }}>{t('Submit Batch Data')}</AntButton>
+                setIsProductionDateSet(false);
+              }}
+              icon={<ReloadOutlined />}
+              style={{
+                backgroundColor: "#454E7C",
+                color: "white",
+                marginRight: "8px",
+              }}
+            />
+            <AntButton
+              type="primary"
+              size="large"
+              onClick={onSubmitForm}
+              style={{ backgroundColor: "#454E7C", borderColor: "#454E7C" }}
+            >
+              {t("Submit Batch Data")}
+            </AntButton>
           </div>
         </Form>
       </FormContainer>
