@@ -265,43 +265,57 @@ function ProductionBatchForm(props) {
     window.close();
   };
 
+// Submit Form Handler
+
+// Helper function to format values for the SQL query
+const sqlValue = (value) => {
+  // Check if the value is a valid, non-empty string or number
+  if (value === null || value === undefined || value === '') {
+    return 'NULL';
+  }
+  // If it's a number, return it as is. Otherwise, wrap it in single quotes.
+  return typeof value === 'number' ? value : `'${value}'`;
+};
+
+// This function takes the form values and builds the final SQL string
+function buildInsertQuery(values) {
+  return `INSERT INTO product_batch (
+    production_date, tank_number, ethanol_vol, beer_feed_rate, 
+    trim_speeds, hours_of_production, wdgs_prod_ton_hr, wdgs_avg_moisture, 
+    ddgs_prod_ton_hr, ddgs_avg_moisture, is_certified, corn_bu, 
+    beer_feed_adjustment, total_wdgs_tons, total_ddgs_tons
+  ) VALUES (
+    '${values.productionDate.format("YYYY-MM-DD")}',
+    ${sqlValue(values.tankNumber)},
+    ${sqlValue(values.ethanolVol)},
+    ${sqlValue(values.beerFeedRate)},
+    ${sqlValue(values.trimSpeeds)},
+    ${sqlValue(values.hoursOfProduction)},
+    ${sqlValue(values.wdgsProdTonHr)},
+    ${sqlValue(values.wdgsAvgMoisture)},
+    ${sqlValue(values.ddgsProdTonHr)},
+    ${sqlValue(values.ddgsAvgMoisture)},
+    ${sqlValue(values.isCertified)},
+    ${sqlValue(values.cornBu)},
+    ${sqlValue(values.beerFeedAdjustment)},
+    ${sqlValue(values.wdgsTons)}, 
+    ${sqlValue(values.ddgsTons)}
+  );`;
+}
+
+// onSubmitForm new version
+
 const onSubmitForm = async () => {
     try {
       const values = await form.validateFields();
-      console.log('Submitting these values:', values);
-
-      // --- CORRECTED LINE ---
-      // We call .format() directly on the date object from the form.
-      const formattedDate = values.productionDate.format('YYYY-MM-DD');
-
-      const insertQuery = `
-        INSERT INTO product_batch (
-          production_date, tank_number, ethanol_vol, beer_feed_rate, 
-          trim_speeds, hours_of_production, wdgs_prod_ton_hr, wdgs_avg_moisture, 
-          ddgs_prod_ton_hr, ddgs_avg_moisture, is_certified, corn_bu, 
-          beer_feed_adjustment, total_wdgs_tons, total_ddgs_tons
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-      `;
-
-      const queryParams = [
-        formattedDate, // formatting first because moment interferes with DatePicker to change the date to current date instead of the date object which was picked up
-        values.tankNumber,
-        values.ethanolVol,
-        values.beerFeedRate,
-        values.trimSpeeds,
-        values.hoursOfProduction,
-        values.wdgsProdTonHr,
-        values.wdgsAvgMoisture,
-        values.ddgsProdTonHr,
-        values.ddgsAvgMoisture,
-        values.isCertified,
-        values.cornBu,
-        values.beerFeedAdjustment,
-        values.wdgsTons,
-        values.ddgsTons
-      ];
       
-      const result = await fetchData(insertQuery, queryParams);
+      // 1. Build the query using our new function
+      const insertQuery = buildInsertQuery(values);
+
+      console.log("Executing Query:", insertQuery);
+
+      // 2. Send the single query string to the backend
+      const result = await fetchData(insertQuery);
       console.log('API Response:', result);
 
       openNotification('bottomRight', 'Production Batch Data saved successfully!');
@@ -318,7 +332,7 @@ const onSubmitForm = async () => {
           placement: 'bottomRight',
       });
     }
-  };
+};
 // Ethanol Occurence Records Table
   const tableColumns = [
     { title: 'ID', dataIndex: 'id', key: 'id' },

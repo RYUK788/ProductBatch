@@ -13,7 +13,7 @@ const dbConfig = {
   host: 'devops.golgixai.com',
   user: 'root',
   port: 1434,
-  password: '1234',
+  password: '123',
   database: 'icm',
   waitForConnections: true,
   connectionLimit: 10,
@@ -27,14 +27,14 @@ console.log("✅ Database connection pool created successfully.");
 // --- ⚠️ GENERIC/INSECURE ROUTE ---
 // This endpoint accepts and runs any query from the client.
 app.post('/api/query', async (req, res) => {
-  const { query,params } = req.body;
+  const { query } = req.body;
 
   if (!query) {
     return res.status(400).json({ error: 'Query is required' });
   }
 
   try {
-    const [rows] = await pool.execute(query,params);
+    const [rows] = await pool.execute(query);
     res.json(rows);
   } catch (error) {
     console.error('Error executing generic query:', error);
